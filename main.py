@@ -3,7 +3,6 @@ import random
 from pathlib import Path
 
 # Import modules
-from btp.data.loader import load_datasets
 from btp.features.events import extract_event_features
 from btp.features.images import ImageFeatureExtractor
 from btp.fusion.utils import fuse_features_in_directories
@@ -20,54 +19,49 @@ from btp.visualization.images import ImageVisualizer
 
 
 def setup_context(download=False):
-    """Sets up the paths and loads dataset information.
-
-    Returns a dictionary with all relevant paths.
-    """
+    """Sets up the paths for local development."""
     print("--- 1. Setup and Data Import ---")
-    # For local testing, we might not want to download every time or if credentials are missing.
-    raw_data_path, preprocessed_data_path = load_datasets(download=download)
 
-    # Define paths (using local paths if kaggle paths are not available)
     base_dir = Path.cwd()
 
-    # If load_datasets returned None, we assume data is at specific locations or we can't proceed with some steps
-    if raw_data_path is None:
-        raw_data_path = base_dir / "data" / "raw"  # Placeholder
-        print(f"Using placeholder raw data path: {raw_data_path}")
-    else:
-        raw_data_path = Path(raw_data_path)
+    # Define clean local data paths
+    # User should place raw data in: project_root/data/raw
+    raw_data_path = base_dir / "data" / "raw"
 
-    if preprocessed_data_path is None:
-        preprocessed_data_path = base_dir / "data" / "preprocessed"  # Placeholder
-        print(f"Using placeholder preprocessed data path: {preprocessed_data_path}")
-    else:
-        preprocessed_data_path = Path(preprocessed_data_path)
+    # Outputs will go to: project_root/data/processed and project_root/data/features
+    processed_dir = base_dir / "data" / "processed"
+    features_dir = base_dir / "data" / "features"
+    viz_dir = base_dir / "visualizations"
 
-    working_dir = base_dir / "working"
-    working_dir.mkdir(exist_ok=True)
+    # Create necessary directories
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    features_dir.mkdir(parents=True, exist_ok=True)
+    viz_dir.mkdir(parents=True, exist_ok=True)
 
     context = {
         "base_dir": base_dir,
         "raw_data_path": raw_data_path,
-        "preprocessed_data_path": preprocessed_data_path,
-        "working_dir": working_dir,
+        "working_dir": base_dir,  # Keeping for compatibility if needed
+        # INPUTS (Where your raw data sits)
+        # Expects: data/raw/Dataset/Lowlight_event
         "event_process_input": raw_data_path / "Dataset" / "Lowlight_event",
-        "event_process_output": working_dir
-        / "Preprocessed-Dataset"
-        / "Processed_Lowlight_event",
+        # Expects: data/raw/Dataset/Lowlight_Images
         "input_image_process_path": raw_data_path / "Dataset" / "Lowlight_Images",
-        "output_image_process_path": working_dir
-        / "Preprocessed-Dataset"
-        / "Processed_Lowlight_Images",
-        "extract_event_output_dir_base": working_dir
-        / "Extracted-Dataset"
-        / "Extracted_Lowlight_event",
-        "extract_image_output_dir": working_dir
-        / "Extracted-Dataset"
-        / "Extracted_Lowlight_Images",
-        "fused_output_root": working_dir / "Extracted-Dataset" / "Fused_Features",
+        # INTERMEDIATE (Where voxel grids and denoised images go)
+        "event_process_output": processed_dir / "Processed_Lowlight_event",
+        "output_image_process_path": processed_dir / "Processed_Lowlight_Images",
+        # FEATURES (Where .npy and .h5 embeddings go)
+        "extract_event_output_dir_base": features_dir / "Extracted_Lowlight_event",
+        "extract_image_output_dir": features_dir / "Extracted_Lowlight_Images",
+        "fused_output_root": features_dir / "Fused_Features",
+        # VISUALIZATION
+        "viz_dir": viz_dir,
     }
+
+    # Validation print
+    print(f"📂 Expecting Raw Events at: {context['event_process_input']}")
+    print(f"📂 Expecting Raw Images at: {context['input_image_process_path']}")
+
     return context
 
 

@@ -12,3 +12,4 @@ wheels/
 working/
 *.zip
 btp.py
+data/
