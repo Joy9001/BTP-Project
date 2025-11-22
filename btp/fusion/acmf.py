@@ -11,7 +11,7 @@ class ChannelAttention(nn.Module):
     """
 
     def __init__(self, in_planes, ratio=16):
-        super(ChannelAttention, self).__init__()
+        super().__init__()
         # Global Average Pooling
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         # Global Max Pooling
@@ -47,7 +47,7 @@ class SpatialAttention(nn.Module):
     """
 
     def __init__(self, kernel_size=7):
-        super(SpatialAttention, self).__init__()
+        super().__init__()
         # A convolution layer to process the pooled feature maps
         self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size // 2, bias=False)
         self.sigmoid = nn.Sigmoid()
@@ -72,7 +72,7 @@ class AdaptiveCrossModalFusion(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, ratio=16, kernel_size=7):
-        super(AdaptiveCrossModalFusion, self).__init__()
+        super().__init__()
         # Attention mechanisms for the event features
         self.ca = ChannelAttention(in_channels, ratio)
         self.sa = SpatialAttention(kernel_size)

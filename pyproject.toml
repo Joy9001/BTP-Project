@@ -19,4 +19,4 @@ dependencies = [
 ]
 
 [tool.ruff]
-ignore = ["D107", "N812", "D102", "D103"]
+ignore = ["D107", "N812", "D102", "D103", "N803", "N806"]

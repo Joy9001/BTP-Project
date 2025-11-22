@@ -70,8 +70,7 @@ class ImageFeatureExtractor:
             print("✓ Model loaded successfully!")
 
     def process_directory(self, input_dir, output_dir, file_extension="npy"):
-        """Extracts features from all images in a directory and saves one feature
-        file per image, mirroring the input folder structure.
+        """Extracts features from all images in a directory and saves one feature file per image, mirroring the input folder structure.
 
         Args:
             input_dir (str or Path): The root directory containing image subdirectories.

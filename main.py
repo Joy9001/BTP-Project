@@ -20,8 +20,8 @@ from btp.visualization.images import ImageVisualizer
 
 
 def setup_context(download=False):
-    """
-    Sets up the paths and loads dataset information.
+    """Sets up the paths and loads dataset information.
+
     Returns a dictionary with all relevant paths.
     """
     print("--- 1. Setup and Data Import ---")
@@ -282,7 +282,7 @@ def main():
     }
 
     if args.step == "all":
-        for step_name, step_func in steps.items():
+        for _, step_func in steps.items():
             step_func(context)
     elif args.step == "setup":
         pass  # setup_context is always called
