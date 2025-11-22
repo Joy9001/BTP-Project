@@ -1,121 +1,127 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
-class ChannelAttention(nn.Module):
-    """Channel Attention (CA) module.
+class ACMFBlock(nn.Module):
+    """Adaptive Cross-Modal Fusion (ACMF) Block.
 
-    This module computes channel-wise attention weights by aggregating spatial
-    information using both average and max pooling.
+    Fuses features from Image (I) and Events (E) using an Attention Mechanism.
+    Formula:
+        Attention = Sigmoid(Conv(Concat(I, E)))
+        Fused = I * Attention + E * (1 - Attention)
+
+    This allows the network to dynamically select the best modality for each pixel.
     """
 
-    def __init__(self, in_planes, ratio=16):
+    def __init__(self, in_channels):
         super().__init__()
-        # Global Average Pooling
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        # Global Max Pooling
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
 
-        # --- FIX ---
-        # Ensure the intermediate channel dimension is at least 1 to avoid
-        # creating a layer with 0 output channels when in_planes < ratio.
-        hidden_planes = max(1, in_planes // ratio)
-
-        # A small Multi-Layer Perceptron (MLP) to compute attention weights
-        self.fc = nn.Sequential(
-            nn.Conv2d(in_planes, hidden_planes, 1, bias=False),
+        # 1. Attention Generator
+        # Takes concatenation of Image + Event (C + C = 2C channels)
+        # Compresses to 1 channel (Spatial Attention Map)
+        self.attention_net = nn.Sequential(
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=1),  # Reduce dim
             nn.ReLU(),
-            nn.Conv2d(hidden_planes, in_planes, 1, bias=False),
-        )
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # Apply pooling operations
-        avg_out = self.fc(self.avg_pool(x))
-        max_out = self.fc(self.max_pool(x))
-        # Sum the outputs and apply sigmoid to get attention weights
-        out = avg_out + max_out
-        return self.sigmoid(out)
-
-
-class SpatialAttention(nn.Module):
-    """Spatial Attention (SA) module.
-
-    This module generates a spatial attention map by pooling across channels
-    and then applying a convolution.
-    """
-
-    def __init__(self, kernel_size=7):
-        super().__init__()
-        # A convolution layer to process the pooled feature maps
-        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size // 2, bias=False)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # Pool across the channel dimension
-        avg_out = torch.mean(x, dim=1, keepdim=True)
-        max_out, _ = torch.max(x, dim=1, keepdim=True)
-        # Concatenate the pooled features
-        x = torch.cat([avg_out, max_out], dim=1)
-        # Apply convolution and sigmoid to get the spatial attention map
-        x = self.conv1(x)
-        return self.sigmoid(x)
-
-
-class AdaptiveCrossModalFusion(nn.Module):
-    """Adaptive Cross-Modal Fusion (ACMF) module.
-
-    This module adaptively fuses features from image and event modalities
-    using channel and spatial attention mechanisms to enhance relevant details
-    and suppress noise, as described for low-light VOS.
-    """
-
-    def __init__(self, in_channels, out_channels, ratio=16, kernel_size=7):
-        super().__init__()
-        # Attention mechanisms for the event features
-        self.ca = ChannelAttention(in_channels, ratio)
-        self.sa = SpatialAttention(kernel_size)
-
-        # Convolutional layers to refine features after fusion
-        self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=3, padding=1, bias=False
-        )
-        self.conv2 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=3, padding=1, bias=False
+            nn.Conv2d(in_channels, 1, kernel_size=3, padding=1),  # Spatial context
+            nn.Sigmoid(),  # Range [0, 1]
         )
 
-        # Batch normalization for stability
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        # 2. Feature Refinement
+        # Smooths the result after fusion
+        self.refine_conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+        )
 
-    def forward(self, F_img, F_evt):
-        """Forward pass for the ACMF module.
-
-        Args:
-            F_img (torch.Tensor): Image features of shape (B, C, H, W).
-            F_evt (torch.Tensor): Event features of shape (B, C, H, W).
-
-        Returns:
-            torch.Tensor: Fused and refined features.
+    def forward(self, feat_img, feat_event):
+        """Args:
+        feat_img: (B, C, H, W)
+        feat_event: (B, C, H, W)
 
         """
-        # --- Step 1: Extract edge/structural info from events using attention ---
-        # Apply channel attention to event features
-        F_evt_ca = self.ca(F_evt) * F_evt
-        # Apply spatial attention to event features
-        F_evt_sa = self.sa(F_evt) * F_evt
+        # 1. Concatenate along channel dimension
+        combined = torch.cat([feat_img, feat_event], dim=1)  # (B, 2C, H, W)
 
-        # --- Step 2: Cross-modal interaction and refinement ---
-        # Element-wise multiplication to fuse image features with attended event features
-        F_fused_ca = self.conv1(F_img * F_evt_ca)
-        F_fused_sa = self.conv2(F_img * F_evt_sa)
+        # 2. Generate Attention Map (B, 1, H, W)
+        # Values close to 1.0 -> Trust Image
+        # Values close to 0.0 -> Trust Events
+        alpha = self.attention_net(combined)
 
-        F_fused_ca = F.relu(self.bn1(F_fused_ca))
-        F_fused_sa = F.relu(self.bn2(F_fused_sa))
+        # 3. Weighted Sum (Fusion)
+        fused = (feat_img * alpha) + (feat_event * (1 - alpha))
 
-        # --- Step 3: Final output generation ---
-        # Sum the two enhanced features for a robust final representation
-        F_out = F_fused_ca + F_fused_sa
+        # 4. Refine
+        out = self.refine_conv(fused)
 
-        return F_out
+        return out
+
+
+class FusionNetwork(nn.Module):
+    """Container that holds 4 ACMF Blocks (one for each scale)."""
+
+    def __init__(self):
+        super().__init__()
+
+        # ResNet18 Channel counts for the 4 scales:
+        # Scale 1: 64 channels
+        # Scale 2: 128 channels
+        # Scale 3: 256 channels
+        # Scale 4: 512 channels
+
+        self.acmf_1 = ACMFBlock(64)
+        self.acmf_2 = ACMFBlock(128)
+        self.acmf_3 = ACMFBlock(256)
+        self.acmf_4 = ACMFBlock(512)
+
+    def forward(self, img_pyramid, evt_pyramid):
+        """Args:
+        img_pyramid: List of [c2, c3, c4, c5] from Image Branch
+        evt_pyramid: List of [c2, c3, c4, c5] from Event Branch
+
+        """
+        f1 = self.acmf_1(img_pyramid[0], evt_pyramid[0])
+        f2 = self.acmf_2(img_pyramid[1], evt_pyramid[1])
+        f3 = self.acmf_3(img_pyramid[2], evt_pyramid[2])
+        f4 = self.acmf_4(img_pyramid[3], evt_pyramid[3])
+
+        return [f1, f2, f3, f4]
+
+
+# -----------------------------------------------------------------------------
+# Verification Function
+# -----------------------------------------------------------------------------
+def check_fusion_module():
+    print("\n--- Testing Cross-Modal Fusion ---")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    fusion_net = FusionNetwork().to(device)
+
+    # Create Dummy Pyramids (B=1)
+    # Shapes must match what we saw in your verification output
+    img_pyr = [
+        torch.randn(1, 64, 72, 88).to(device),
+        torch.randn(1, 128, 36, 44).to(device),
+        torch.randn(1, 256, 18, 22).to(device),
+        torch.randn(1, 512, 9, 11).to(device),
+    ]
+
+    evt_pyr = [
+        torch.randn(1, 64, 72, 88).to(device),
+        torch.randn(1, 128, 36, 44).to(device),
+        torch.randn(1, 256, 18, 22).to(device),
+        torch.randn(1, 512, 9, 11).to(device),
+    ]
+
+    try:
+        fused_pyr = fusion_net(img_pyr, evt_pyr)
+        print("✅ Fusion successful!")
+        for i, f in enumerate(fused_pyr):
+            print(f"  Fused Scale {i + 1}: {list(f.shape)}")
+
+    except Exception as e:
+        print(f"❌ Fusion Failed: {e}")
+
+
+if __name__ == "__main__":
+    check_fusion_module()
