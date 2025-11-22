@@ -1,5 +1,5 @@
 [project]
-name = "btp-project"
+name = "btp"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -19,6 +19,14 @@ dependencies = [
     "tqdm>=4.67.1",
     "transformers>=4.57.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.9.11,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "."
+
 
 [tool.ruff]
 ignore = ["D107", "N812", "D102", "D103", "N803", "N806", "D205"]
