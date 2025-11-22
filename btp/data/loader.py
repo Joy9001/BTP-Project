@@ -9,7 +9,14 @@ def load_datasets(download=True):
     if not download:
         print("Skipping Kaggle download.")
         # Assuming data might be available locally or handled otherwise
-        return None, None
+        joymridha04_lle_vos_dataset_path = Path.cwd() / "working" / "lle-vos-dataset"
+        joymridha04_preprocessed_lle_vos_dataset_path = (
+            Path.cwd() / "working" / "preprocessed-lle-vos-dataset"
+        )
+        return (
+            joymridha04_lle_vos_dataset_path,
+            joymridha04_preprocessed_lle_vos_dataset_path,
+        )
 
     try:
         import kagglehub

@@ -152,7 +152,7 @@ def run_visualization(context):
 
 def run_feature_extraction(context):
     print("\n--- 5. Feature Extraction ---")
-    working_dir = context["working_dir"]
+    # working_dir = context["working_dir"]
     event_process_output = context["event_process_output"]
     extract_event_output_dir_base = context["extract_event_output_dir_base"]
     output_image_process_path = context["output_image_process_path"]
