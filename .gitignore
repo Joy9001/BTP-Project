@@ -11,3 +11,4 @@ wheels/
 .env
 working/
 *.zip
+btp.py
