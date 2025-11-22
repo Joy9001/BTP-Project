@@ -101,7 +101,6 @@ def run_preprocess_images(context):
 
 def run_visualization(context):
     print("\n--- 4. Visualization ---")
-    working_dir = context["working_dir"]
     event_process_output = context["event_process_output"]
     event_process_input = context["event_process_input"]
     input_image_process_path = context["input_image_process_path"]
@@ -117,7 +116,7 @@ def run_visualization(context):
                 rel_path = processed_file.relative_to(event_process_output)
                 raw_file = event_process_input / rel_path
                 if raw_file.exists():
-                    output_viz_dir = working_dir / "visualize" / "event_data"
+                    output_viz_dir = context["viz_dir"] / "event_data"
                     EventComparator.visualize_raw_vs_processed(
                         raw_file, processed_file, output_dir=output_viz_dir
                     )
@@ -126,7 +125,7 @@ def run_visualization(context):
 
     # Image Visualization
     if input_image_process_path.exists() and output_image_process_path.exists():
-        save_dir = working_dir / "visualize" / "image_data"
+        save_dir = context["viz_dir"] / "image_data"
         try:
             ImageVisualizer.visualize_preprocessing(
                 input_image_process_path,
