@@ -1,3 +1,4 @@
+import argparse
 import random
 from pathlib import Path
 
@@ -18,18 +19,16 @@ from btp.visualization.events import EventComparator
 from btp.visualization.images import ImageVisualizer
 
 
-def main():
-    # 1. Setup and Data Import
+def setup_context(download=False):
+    """
+    Sets up the paths and loads dataset information.
+    Returns a dictionary with all relevant paths.
+    """
     print("--- 1. Setup and Data Import ---")
     # For local testing, we might not want to download every time or if credentials are missing.
-    # Adjust download=True/False as needed or based on env var.
-    raw_data_path, preprocessed_data_path = load_datasets(download=False)
+    raw_data_path, preprocessed_data_path = load_datasets(download=download)
 
     # Define paths (using local paths if kaggle paths are not available)
-    # If running in the original environment, these paths might need to be adjusted to match
-    # where kagglehub puts things, or we use the return values from load_datasets.
-
-    # Default paths mirroring the original script logic but adaptable
     base_dir = Path.cwd()
 
     # If load_datasets returned None, we assume data is at specific locations or we can't proceed with some steps
@@ -48,12 +47,34 @@ def main():
     working_dir = base_dir / "working"
     working_dir.mkdir(exist_ok=True)
 
-    # 2. Event Data Preprocessing
+    context = {
+        "base_dir": base_dir,
+        "raw_data_path": raw_data_path,
+        "preprocessed_data_path": preprocessed_data_path,
+        "working_dir": working_dir,
+        "event_process_input": raw_data_path / "Dataset" / "Lowlight_event",
+        "event_process_output": working_dir
+        / "Preprocessed-Dataset"
+        / "Processed_Lowlight_event",
+        "input_image_process_path": raw_data_path / "Dataset" / "Lowlight_Images",
+        "output_image_process_path": working_dir
+        / "Preprocessed-Dataset"
+        / "Processed_Lowlight_Images",
+        "extract_event_output_dir_base": working_dir
+        / "Extracted-Dataset"
+        / "Extracted_Lowlight_event",
+        "extract_image_output_dir": working_dir
+        / "Extracted-Dataset"
+        / "Extracted_Lowlight_Images",
+        "fused_output_root": working_dir / "Extracted-Dataset" / "Fused_Features",
+    }
+    return context
+
+
+def run_preprocess_events(context):
     print("\n--- 2. Event Data Preprocessing ---")
-    event_process_input = raw_data_path / "Dataset" / "Lowlight_event"
-    event_process_output = (
-        working_dir / "Preprocessed-Dataset" / "Processed_Lowlight_event"
-    )
+    event_process_input = context["event_process_input"]
+    event_process_output = context["event_process_output"]
 
     if event_process_input.exists():
         processor = BatchEventProcessor(
@@ -67,12 +88,11 @@ def main():
             f"Skipping event preprocessing: Input directory {event_process_input} does not exist."
         )
 
-    # 3. Image Data Preprocessing
+
+def run_preprocess_images(context):
     print("\n--- 3. Image Data Preprocessing ---")
-    input_image_process_path = raw_data_path / "Dataset" / "Lowlight_Images"
-    output_image_process_path = (
-        working_dir / "Preprocessed-Dataset" / "Processed_Lowlight_Images"
-    )
+    input_image_process_path = context["input_image_process_path"]
+    output_image_process_path = context["output_image_process_path"]
 
     if input_image_process_path.exists():
         image_processor = ImageProcessor()
@@ -84,17 +104,21 @@ def main():
             f"Skipping image preprocessing: Input directory {input_image_process_path} does not exist."
         )
 
-    # 4. Visualization
+
+def run_visualization(context):
     print("\n--- 4. Visualization ---")
+    working_dir = context["working_dir"]
+    event_process_output = context["event_process_output"]
+    event_process_input = context["event_process_input"]
+    input_image_process_path = context["input_image_process_path"]
+    output_image_process_path = context["output_image_process_path"]
+
     # Event Visualization
-    # Need to find a sample file.
     if event_process_output.exists():
         sample_files = list(event_process_output.glob("**/*.npy"))
         if sample_files:
             processed_file = sample_files[0]
             # Assuming raw file has same relative path structure if we want comparison
-            # But for now let's just try to visualize if we have the data
-            # Construct raw file path if possible, otherwise skip comparison
             try:
                 rel_path = processed_file.relative_to(event_process_output)
                 raw_file = event_process_input / rel_path
@@ -125,16 +149,18 @@ def main():
         except Exception as e:
             print(f"Could not run image visualization: {e}")
 
-    # 5. Feature Extraction
+
+def run_feature_extraction(context):
     print("\n--- 5. Feature Extraction ---")
+    working_dir = context["working_dir"]
+    event_process_output = context["event_process_output"]
+    extract_event_output_dir_base = context["extract_event_output_dir_base"]
+    output_image_process_path = context["output_image_process_path"]
+    preprocessed_data_path = context["preprocessed_data_path"]
+    extract_image_output_dir = context["extract_image_output_dir"]
 
     # Event Feature Extraction
-    extract_event_output_dir_base = (
-        working_dir / "Extracted-Dataset" / "Extracted_Lowlight_event"
-    )
-
     # In the original script, it iterates over directories 00001 to 00070.
-    # We can replicate that or just process what we have.
     if event_process_output.exists():
         # processing all subdirectories found
         for subdir in event_process_output.iterdir():
@@ -156,14 +182,6 @@ def main():
                     print(f"Error extracting event features for {subdir.name}: {e}")
 
     # Image Feature Extraction
-    extract_image_output_dir = (
-        working_dir / "Extracted-Dataset" / "Extracted_Lowlight_Images"
-    )
-
-    # Use preprocessed data path if available, or the one we just generated
-    # The original script uses preprocessed_data_path variable which comes from kaggle download
-    # If we ran preprocessing, we should use output_image_process_path
-
     image_feat_input_dir = output_image_process_path
     if not image_feat_input_dir.exists() and preprocessed_data_path:
         image_feat_input_dir = (
@@ -186,13 +204,12 @@ def main():
     else:
         print("Skipping image feature extraction: Input directory not found.")
 
-    # 6. Fusion
-    print("\n--- 6. Fusion ---")
-    fused_output_root = working_dir / "Extracted-Dataset" / "Fused_Features"
 
-    # Inputs for fusion
-    img_feat_root = extract_image_output_dir
-    evt_feat_root = extract_event_output_dir_base
+def run_fusion(context):
+    print("\n--- 6. Fusion ---")
+    fused_output_root = context["fused_output_root"]
+    img_feat_root = context["extract_image_output_dir"]
+    evt_feat_root = context["extract_event_output_dir_base"]
 
     if img_feat_root.exists() and evt_feat_root.exists():
         fuse_features_in_directories(
@@ -205,8 +222,11 @@ def main():
     else:
         print("Skipping fusion: Feature directories not found.")
 
-    # 7. Analysis Visualization
+
+def run_analysis(context):
     print("\n--- 7. Analysis Visualization ---")
+    fused_output_root = context["fused_output_root"]
+
     if fused_output_root.exists():
         features, labels, folder_map = load_all_features(
             str(fused_output_root), max_folders=10
@@ -220,14 +240,54 @@ def main():
                     random_index = random.randint(0, len(features) - 1)
                     visualize_single_feature_vector(features[random_index])
 
-                # Before vs After comparison needs original features.
-                # This is complex to orchestrate without knowing exact file matches in this generic script.
-                # Skipping for now or could be added if we track file paths carefully.
-
             except Exception as e:
                 print(f"Error in analysis visualization: {e}")
     else:
         print("Skipping analysis: Fused features not found.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="BTP Pipeline")
+    parser.add_argument(
+        "--step",
+        type=str,
+        default="all",
+        choices=[
+            "all",
+            "setup",
+            "preprocess_events",
+            "preprocess_images",
+            "visualize",
+            "extract_features",
+            "fuse",
+            "analyze",
+        ],
+        help="Step to run",
+    )
+    parser.add_argument(
+        "--download", action="store_true", help="Download datasets from Kaggle"
+    )
+
+    args = parser.parse_args()
+
+    context = setup_context(download=args.download)
+
+    steps = {
+        "preprocess_events": run_preprocess_events,
+        "preprocess_images": run_preprocess_images,
+        "visualize": run_visualization,
+        "extract_features": run_feature_extraction,
+        "fuse": run_fusion,
+        "analyze": run_analysis,
+    }
+
+    if args.step == "all":
+        for step_name, step_func in steps.items():
+            step_func(context)
+    elif args.step == "setup":
+        pass  # setup_context is always called
+    elif args.step in steps:
+        steps[args.step](context)
 
 
 if __name__ == "__main__":
