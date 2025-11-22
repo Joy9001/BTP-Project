@@ -1,10 +1,13 @@
 from pathlib import Path
+
+import h5py
 import numpy as np
 import torch
 import torch.nn as nn
-import h5py
 from tqdm import tqdm
+
 from .acmf import AdaptiveCrossModalFusion
+
 
 def fuse_features_in_directories(
     image_features_dir,

@@ -1,12 +1,13 @@
 import random
 from pathlib import Path
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-import h5py
+
 
 def load_all_features(fused_features_dir, max_folders=70, max_files_per_folder=50):
     """Loads all fused feature vectors from the specified directory structure.
@@ -49,6 +50,7 @@ def load_all_features(fused_features_dir, max_folders=70, max_files_per_folder=5
 
     return np.array(all_features), np.array(labels), folder_map
 
+
 def visualize_tsne(
     features, labels, folder_map, title="t-SNE Visualization of Fused Features"
 ):
@@ -86,6 +88,7 @@ def visualize_tsne(
     plt.tight_layout()
     plt.show()
 
+
 def visualize_similarity_heatmap(
     features, labels, folder_map, title="Feature Similarity Heatmap"
 ):
@@ -121,6 +124,7 @@ def visualize_similarity_heatmap(
     plt.ylabel("Feature Index", fontsize=12)
     plt.show()
 
+
 def visualize_single_feature_vector(feature, title="Single Fused Feature Vector"):
     """Displays a single feature vector as a bar chart.
 
@@ -138,6 +142,7 @@ def visualize_single_feature_vector(feature, title="Single Fused Feature Vector"
     plt.ylabel("Value", fontsize=12)
     plt.grid(axis="y")
     plt.show()
+
 
 def visualize_before_vs_after(img_feat, evt_feat, fused_feat):
     """Compares original image, event, and final fused features.

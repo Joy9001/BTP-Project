@@ -1,10 +1,9 @@
-import math
-import os
-import random
 from pathlib import Path
+
 import numpy as np
 import torch
 from tqdm import tqdm
+
 
 class EventProcessor:
     """A class containing methods for processing raw event data.

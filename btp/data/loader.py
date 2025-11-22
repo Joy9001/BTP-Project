@@ -1,9 +1,9 @@
 from pathlib import Path
-import os
+
 
 def load_datasets(download=True):
-    """
-    Imports datasets from Kaggle.
+    """Imports datasets from Kaggle.
+
     Make sure you have kaggle credentials configured if download is True.
     """
     if not download:
@@ -38,17 +38,21 @@ def load_datasets(download=True):
             "joymridha04/preprocessed-lle-vos-dataset"
         )
         print("✓ Preprocessed LLE-VOS Dataset imported successfully!")
-        print(f"Preprocessed dataset path: {joymridha04_preprocessed_lle_vos_dataset_path}")
+        print(
+            f"Preprocessed dataset path: {joymridha04_preprocessed_lle_vos_dataset_path}"
+        )
     except Exception as e:
         print(f"Failed to download Preprocessed LLE-VOS Dataset: {e}")
         joymridha04_preprocessed_lle_vos_dataset_path = None
 
-    return joymridha04_lle_vos_dataset_path, joymridha04_preprocessed_lle_vos_dataset_path
+    return (
+        joymridha04_lle_vos_dataset_path,
+        joymridha04_preprocessed_lle_vos_dataset_path,
+    )
+
 
 def get_data_paths(raw_path=None, preprocessed_path=None):
-    """
-    Set up path variables for easy access.
-    """
+    """Set up path variables for easy access."""
     raw_data_path = Path(raw_path) if raw_path else None
     preprocessed_data_path = Path(preprocessed_path) if preprocessed_path else None
 

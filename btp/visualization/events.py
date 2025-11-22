@@ -1,8 +1,9 @@
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from pathlib import Path
-import random
+
 
 class EventVisualizer:
     """A class for visualizing event data with various methods.

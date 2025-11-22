@@ -1,8 +1,10 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
 import random
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
 from PIL import Image
+
 
 class ImageVisualizer:
     """A class for visualizing image processing results.

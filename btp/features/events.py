@@ -1,11 +1,13 @@
 import math
 import os
 from pathlib import Path
+
+import h5py
 import numpy as np
 import torch
 import torch.nn as nn
-import h5py
 from tqdm import tqdm
+
 
 class EventTransformerComponents:
     """Container class for all transformer-based event processing components."""
@@ -104,6 +106,7 @@ class EventTransformerComponents:
             features = features.transpose(1, 2)  # (B, D, N)
             pooled = self.pooling(features).squeeze(-1)  # (B, D)
             return pooled
+
 
 class OptimizedEventFeatureExtractor:
     """Optimized GPU-accelerated feature extractor for event data.
@@ -290,6 +293,7 @@ class OptimizedEventFeatureExtractor:
         """Load features from an H5 file."""
         with h5py.File(file_path, "r") as h5f:
             return h5f["features"][:]
+
 
 def extract_event_features(
     input_dir,
