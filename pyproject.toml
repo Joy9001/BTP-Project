@@ -4,4 +4,20 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "h5py>=3.15.1",
+    "kaggle>=1.8.0",
+    "kagglehub>=0.3.13",
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "pillow>=12.0.0",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
+    "tqdm>=4.67.1",
+    "transformers>=4.57.1",
+]
+
+[tool.ruff]
+ignore = ["D107", "N812", "D102", "D103", "N803", "N806"]
