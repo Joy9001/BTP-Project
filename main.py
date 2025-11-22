@@ -3,8 +3,7 @@ import random
 from pathlib import Path
 
 # Import modules
-from btp.features.events import extract_event_features
-from btp.features.images import ImageFeatureExtractor
+from btp.features.events import check_feature_extraction
 from btp.fusion.utils import fuse_features_in_directories
 from btp.processing.events import BatchEventProcessor
 from btp.processing.images import ImageProcessor
@@ -146,59 +145,20 @@ def run_visualization(context):
             print(f"Could not run image visualization: {e}")
 
 
-def run_feature_extraction(context):
-    print("\n--- 5. Feature Extraction ---")
-    # working_dir = context["working_dir"]
+def run_event_feature_extraction(context):
+    print("\n--- 3. Event Feature Extraction (Verification) ---")
+    # We verify the model works, but we don't save features to disk
+    # because they are computed live during training.
     event_process_output = context["event_process_output"]
-    extract_event_output_dir_base = context["extract_event_output_dir_base"]
-    output_image_process_path = context["output_image_process_path"]
-    preprocessed_data_path = context["preprocessed_data_path"]
-    extract_image_output_dir = context["extract_image_output_dir"]
 
-    # Event Feature Extraction
-    # In the original script, it iterates over directories 00001 to 00070.
     if event_process_output.exists():
-        # processing all subdirectories found
-        for subdir in event_process_output.iterdir():
-            if subdir.is_dir():
-                print(f"Processing event directory: {subdir.name}")
-                extract_output_dir = extract_event_output_dir_base / subdir.name
-                try:
-                    extract_event_features(
-                        input_dir=str(subdir),
-                        output_dir=str(extract_output_dir),
-                        model_dim=256,
-                        num_heads=8,
-                        num_layers=6,
-                        batch_size=512,
-                        use_compression=True,
-                        use_sub=False,  # input_dir is already the subdir
-                    )
-                except Exception as e:
-                    print(f"Error extracting event features for {subdir.name}: {e}")
-
-    # Image Feature Extraction
-    image_feat_input_dir = output_image_process_path
-    if not image_feat_input_dir.exists() and preprocessed_data_path:
-        image_feat_input_dir = (
-            preprocessed_data_path
-            / "Preprocessed-Dataset"
-            / "Processed_Lowlight_Images"
-        )
-
-    if image_feat_input_dir.exists():
-        image_feature_extractor = ImageFeatureExtractor(
-            model_name="google/vit-base-patch16-224-in21k", batch_size=16
-        )
-        try:
-            image_feature_extractor.process_directory(
-                input_dir=str(image_feat_input_dir),
-                output_dir=str(extract_image_output_dir),
-            )
-        except Exception as e:
-            print(f"Error extracting image features: {e}")
+        check_feature_extraction(event_process_output)
     else:
-        print("Skipping image feature extraction: Input directory not found.")
+        print("Skipping verification: No processed event data found.")
+
+
+def run_image_feature_extraction(context):
+    raise NotImplementedError("Image feature extraction step is not implemented yet.")
 
 
 def run_fusion(context):
@@ -254,7 +214,8 @@ def main():
             "preprocess_events",
             "preprocess_images",
             "visualize",
-            "extract_features",
+            "extract_event_features",
+            "extract_image_features",
             "fuse",
             "analyze",
         ],
@@ -272,7 +233,8 @@ def main():
         "preprocess_events": run_preprocess_events,
         "preprocess_images": run_preprocess_images,
         "visualize": run_visualization,
-        "extract_features": run_feature_extraction,
+        "extract_event_features": run_event_feature_extraction,
+        "extract_image_features": run_image_feature_extraction,
         "fuse": run_fusion,
         "analyze": run_analysis,
     }
