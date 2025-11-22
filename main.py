@@ -71,9 +71,12 @@ def run_preprocess_events(context):
     event_process_output = context["event_process_output"]
 
     if event_process_input.exists():
-        processor = BatchEventProcessor(
-            voxel_size=(5, 5), time_window=1e3, density_threshold=2
-        )
+        # UPDATES:
+        # 1. Removed voxel_size (now hardcoded to 260x346 in the class)
+        # 2. Changed time_window to 50000 (50ms) because your data is in microseconds.
+        #    1e3 (1ms) was too short for object detection.
+        processor = BatchEventProcessor(time_window=50000, density_threshold=2)
+
         processor.process_all_event_files(
             input_dir=event_process_input, output_dir=event_process_output
         )
