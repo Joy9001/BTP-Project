@@ -3,12 +3,16 @@ from pathlib import Path
 import numpy as np
 
 # Replace with path to ONE of your .npy files
+# file_path = (
+#     Path.cwd() / "data" / "raw" / "Dataset" / "Lowlight_event" / "00001" / "00001.npy"
+# )
+
 file_path = (
     Path.cwd()
-    / "working"
-    / "lle-vos-dataset"
+    / "data"
+    / "raw"
     / "Dataset"
-    / "Lowlight_event"
+    / "Processed_Lowlight_event"
     / "00001"
     / "00001.npy"
 )

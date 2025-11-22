@@ -45,10 +45,10 @@ def setup_context(download=False):
         # Expects: data/raw/Dataset/Lowlight_event
         "event_process_input": raw_data_path / "Dataset" / "Lowlight_event",
         # Expects: data/raw/Dataset/Lowlight_Images
-        "input_image_process_path": raw_data_path / "Dataset" / "Lowlight_Images",
+        "image_process_input": raw_data_path / "Dataset" / "Lowlight_Images",
         # INTERMEDIATE (Where voxel grids and denoised images go)
         "event_process_output": processed_dir / "Processed_Lowlight_event",
-        "output_image_process_path": processed_dir / "Processed_Lowlight_Images",
+        "image_process_output": processed_dir / "Processed_Lowlight_Images",
         # FEATURES (Where .npy and .h5 embeddings go)
         "extract_event_output_dir_base": features_dir / "Extracted_Lowlight_event",
         "extract_image_output_dir": features_dir / "Extracted_Lowlight_Images",
@@ -59,13 +59,13 @@ def setup_context(download=False):
 
     # Validation print
     print(f"📂 Expecting Raw Events at: {context['event_process_input']}")
-    print(f"📂 Expecting Raw Images at: {context['input_image_process_path']}")
+    print(f"📂 Expecting Raw Images at: {context['image_process_input']}")
 
     return context
 
 
 def run_preprocess_events(context):
-    print("\n--- 2. Event Data Preprocessing ---")
+    print("\n--- 2a. Event Data Preprocessing ---")
     event_process_input = context["event_process_input"]
     event_process_output = context["event_process_output"]
 
@@ -86,18 +86,18 @@ def run_preprocess_events(context):
 
 
 def run_preprocess_images(context):
-    print("\n--- 3. Image Data Preprocessing ---")
-    input_image_process_path = context["input_image_process_path"]
-    output_image_process_path = context["output_image_process_path"]
+    print("\n--- 2b. Image Data Preprocessing ---")
+    image_process_input = context["image_process_input"]
+    image_process_output = context["image_process_output"]
 
-    if input_image_process_path.exists():
-        image_processor = ImageProcessor()
-        image_processor.process_all_images(
-            input_image_process_path, output_image_process_path
+    if image_process_input.exists():
+        processor = ImageProcessor()
+        processor.process_all_images(
+            input_dir=image_process_input, output_dir=image_process_output
         )
     else:
         print(
-            f"Skipping image preprocessing: Input directory {input_image_process_path} does not exist."
+            f"Skipping image preprocessing: Input directory {image_process_input} does not exist."
         )
 
 
@@ -105,8 +105,8 @@ def run_visualization(context):
     print("\n--- 4. Visualization ---")
     event_process_output = context["event_process_output"]
     event_process_input = context["event_process_input"]
-    input_image_process_path = context["input_image_process_path"]
-    output_image_process_path = context["output_image_process_path"]
+    image_process_input = context["image_process_input"]
+    image_process_output = context["image_process_output"]
 
     # Event Visualization
     if event_process_output.exists():
@@ -126,18 +126,18 @@ def run_visualization(context):
                 print(f"Could not run event comparison: {e}")
 
     # Image Visualization
-    if input_image_process_path.exists() and output_image_process_path.exists():
+    if image_process_input.exists() and image_process_output.exists():
         save_dir = context["viz_dir"] / "image_data"
         try:
             ImageVisualizer.visualize_preprocessing(
-                input_image_process_path,
-                output_image_process_path,
+                image_process_input,
+                image_process_output,
                 num_examples=5,
                 save_dir=save_dir,
             )
             ImageVisualizer.plot_histograms(
-                input_image_process_path,
-                output_image_process_path,
+                image_process_input,
+                image_process_output,
                 num_examples=5,
                 save_dir=save_dir,
             )
