@@ -1,154 +1,98 @@
-import os
 from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
-from torch.utils.data import DataLoader, Dataset
-from tqdm import tqdm
-from transformers import AutoFeatureExtractor, AutoModel
+import torch.nn as nn
+from torchvision.models import ResNet18_Weights, resnet18
 
 
-class ImageFeatureExtractor:
-    """Feature extractor for low-light images using Vision Transformer models.
+class ImageFeatureExtractor(nn.Module):
+    """Standard RGB Feature Extractor using ResNet-18.
 
-    This class provides functionality for:
-    - Loading and preprocessing images from a directory structure.
-    - Batch processing with DataLoader for each subdirectory.
-    - Feature extraction using pre-trained ViT models.
-    - Saving features in a folder-wise manner, with one .npy file per image.
+    Input: (Batch, 3, Height, Width)
+           Height, Width should be multiples of 32 (e.g., 288x352).
+
+    Output: List of 4 feature maps [C2, C3, C4, C5] matching the Event Branch.
     """
 
-    class _ImageDataset(Dataset):
-        """Internal Dataset class for loading images from a list of file paths."""
+    def __init__(self, pretrained=True):
+        super().__init__()
 
-        def __init__(self, image_paths):
-            self.image_paths = image_paths
+        # 1. Load Pretrained Backbone
+        weights = ResNet18_Weights.DEFAULT if pretrained else None
+        self.backbone = resnet18(weights=weights)
 
-        def __len__(self):
-            return len(self.image_paths)
+        # 2. Remove Classification Head
+        del self.backbone.fc
+        del self.backbone.avgpool
 
-        def __getitem__(self, idx):
-            img_path = self.image_paths[idx]
-            try:
-                img = Image.open(img_path).convert("RGB")
-                return img, img_path
-            except Exception as e:
-                print(
-                    f"⚠️ Warning: Could not load image {img_path}. Skipping. Error: {e}"
-                )
-                return None, None
+        # Note: We DO NOT modify the first layer because standard images are already 3 channels (RGB).
 
-    def __init__(
-        self, model_name="google/vit-base-patch16-224-in21k", batch_size=16, device=None
-    ):
-        """Initialize the image feature extractor."""
-        self.model_name = model_name
-        self.batch_size = batch_size
+    def forward(self, x):
+        """Args:
+            x: Image Tensor (Batch, 3, H, W)
 
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = device
-
-        self.processor = None
-        self.model = None
-
-        print("✓ ImageFeatureExtractor initialized")
-        print(f"  Model: {self.model_name}")
-        print(f"  Device: {self.device}")
-        print(f"  Batch size: {self.batch_size}")
-
-    def load_model(self):
-        """Load the pre-trained model and processor if they are not already loaded."""
-        if self.model is None or self.processor is None:
-            print("Loading pre-trained model...")
-            self.processor = AutoFeatureExtractor.from_pretrained(self.model_name)
-            self.model = (
-                AutoModel.from_pretrained(self.model_name).to(self.device).eval()
-            )
-            print("✓ Model loaded successfully!")
-
-    def process_directory(self, input_dir, output_dir, file_extension="npy"):
-        """Extracts features from all images in a directory and saves one feature file per image, mirroring the input folder structure.
-
-        Args:
-            input_dir (str or Path): The root directory containing image subdirectories.
-            output_dir (str or Path): The root directory where feature files will be saved.
-            file_extension (str): The file extension for the saved feature files (e.g., 'npy').
+        Returns:
+            features: List of 4 feature maps [C2, C3, C4, C5]
 
         """
-        self.load_model()
+        # Stage 1 (Initial Conv + MaxPool) -> Stride 4
+        x = self.backbone.conv1(x)
+        x = self.backbone.bn1(x)
+        x = self.backbone.relu(x)
+        x = self.backbone.maxpool(x)
 
-        input_dir = Path(input_dir)
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Stage 2 (Layer 1) -> Stride 4, 64 channels
+        c2 = self.backbone.layer1(x)
 
-        subdirectories = sorted([d for d in input_dir.iterdir() if d.is_dir()])
-        print(f"Found {len(subdirectories)} subdirectories to process in '{input_dir}'")
+        # Stage 3 (Layer 2) -> Stride 8, 128 channels
+        c3 = self.backbone.layer2(c2)
 
-        for subdir in tqdm(subdirectories, desc="Processing subdirectories", ncols=100):
-            # Create a corresponding output subdirectory
-            output_subdir_path = output_dir / subdir.relative_to(input_dir)
-            output_subdir_path.mkdir(parents=True, exist_ok=True)
+        # Stage 4 (Layer 3) -> Stride 16, 256 channels
+        c4 = self.backbone.layer3(c3)
 
-            # Find all image files in the current subdirectory
-            image_files = sorted(
-                list(subdir.glob("*.png"))
-                + list(subdir.glob("*.jpg"))
-                + list(subdir.glob("*.jpeg"))
-            )
+        # Stage 5 (Layer 4) -> Stride 32, 512 channels
+        c5 = self.backbone.layer4(c4)
 
-            if not image_files:
-                continue
+        return [c2, c3, c4, c5]
 
-            # Set up a dataset and dataloader for the current subdirectory's images
-            dataset = self._ImageDataset(image_files)
 
-            def collate_fn(batch):
-                batch = [b for b in batch if b[0] is not None]
-                if not batch:
-                    return None, None
-                images, paths = zip(*batch, strict=False)
-                encoding = self.processor(images=list(images), return_tensors="pt")
-                return encoding, paths
+# -----------------------------------------------------------------------------
+# Verification Function
+# -----------------------------------------------------------------------------
+def check_image_features(input_dir):
+    input_path = Path(input_dir)
+    npy_files = list(input_path.glob("**/*.npy"))
 
-            dataloader = DataLoader(
-                dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                collate_fn=collate_fn,
-                num_workers=os.cpu_count(),
-                pin_memory=True,
-            )
+    if not npy_files:
+        print("No .npy files found.")
+        return
 
-            # Process images in batches for efficiency
-            file_progress = tqdm(
-                dataloader, desc=f"Processing {subdir.name}", leave=False, ncols=100
-            )
-            for batch_encoding, paths in file_progress:
-                if batch_encoding is None:
-                    continue
+    test_file = npy_files[0]
+    print(f"\n--- Testing Image Feature Extraction on {test_file.name} ---")
 
-                pixel_values = batch_encoding["pixel_values"].to(self.device)
-                with torch.no_grad():
-                    outputs = self.model(pixel_values=pixel_values)
-
-                cls_embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-
-                # After processing a batch, iterate through its results to save each one
-                for i in range(len(paths)):
-                    feature_vector = cls_embeddings[i]
-                    original_path = Path(paths[i])
-
-                    # Create an output path with the same name as the image, but a new extension
-                    output_file_path = (
-                        output_subdir_path / original_path.name
-                    ).with_suffix(f".{file_extension}")
-
-                    # Save the single feature vector
-                    np.save(output_file_path, feature_vector.astype(np.float16))
-
-        print(
-            f"\n🎉 Image feature extraction complete. All features saved in {output_dir}"
+    try:
+        # Load and add Batch Dimension
+        raw_tensor = np.load(test_file)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        input_tensor = (
+            torch.tensor(raw_tensor, dtype=torch.float32).unsqueeze(0).to(device)
         )
+
+        print(f"Input Shape: {input_tensor.shape}")
+
+        # Run Model
+        model = ImageFeatureExtractor(pretrained=True).to(device)
+        model.eval()
+
+        with torch.no_grad():
+            features = model(input_tensor)
+
+        print("Feature Pyramid Output:")
+        for i, f in enumerate(features):
+            print(f"  Scale {i + 1}: {list(f.shape)}")
+
+        print("✅ Image Branch is ready for Fusion.")
+
+    except Exception as e:
+        print(f"❌ Failed: {e}")

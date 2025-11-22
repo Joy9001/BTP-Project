@@ -2,8 +2,8 @@ import argparse
 import random
 from pathlib import Path
 
-# Import modules
 from btp.features.events import check_feature_extraction
+from btp.features.images import check_image_features
 from btp.fusion.utils import fuse_features_in_directories
 from btp.processing.events import BatchEventProcessor
 from btp.processing.images import ImageProcessor
@@ -146,7 +146,7 @@ def run_visualization(context):
 
 
 def run_event_feature_extraction(context):
-    print("\n--- 3. Event Feature Extraction (Verification) ---")
+    print("\n--- 3a. Event Feature Extraction (Verification) ---")
     # We verify the model works, but we don't save features to disk
     # because they are computed live during training.
     event_process_output = context["event_process_output"]
@@ -158,7 +158,12 @@ def run_event_feature_extraction(context):
 
 
 def run_image_feature_extraction(context):
-    raise NotImplementedError("Image feature extraction step is not implemented yet.")
+    # ... (Existing Event check) ...
+
+    print("\n--- 3b. Image Feature Extraction (Verification) ---")
+    image_process_output = context["image_process_output"]
+    if image_process_output.exists():
+        check_image_features(image_process_output)
 
 
 def run_fusion(context):
