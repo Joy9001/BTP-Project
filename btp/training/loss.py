@@ -73,4 +73,6 @@ class DetectionLoss(nn.Module):
         loss_cls = self.mse(pred_cls[obj_mask], target_cls[obj_mask])
 
         # Weighted Sum
-        return 5.0 * loss_box + 1.0 * loss_conf + 1.0 * loss_cls
+        # Proposed (Boost Objectness weight)
+        # This forces the model to pay attention to the few pixels that matter
+        return 5.0 * loss_box + 10.0 * loss_conf + 1.0 * loss_cls
