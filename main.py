@@ -1,20 +1,10 @@
 import argparse
-import random
 from pathlib import Path
 
 from btp.features.events import check_feature_extraction
 from btp.features.images import check_image_features
-from btp.fusion.utils import fuse_features_in_directories
 from btp.processing.events import BatchEventProcessor
 from btp.processing.images import ImageProcessor
-from btp.visualization.analysis import (
-    load_all_features,
-    visualize_similarity_heatmap,
-    visualize_single_feature_vector,
-    visualize_tsne,
-)
-from btp.visualization.events import EventComparator
-from btp.visualization.images import ImageVisualizer
 
 
 def setup_context(download=False):
@@ -101,51 +91,7 @@ def run_preprocess_images(context):
         )
 
 
-def run_visualization(context):
-    print("\n--- 4. Visualization ---")
-    event_process_output = context["event_process_output"]
-    event_process_input = context["event_process_input"]
-    image_process_input = context["image_process_input"]
-    image_process_output = context["image_process_output"]
-
-    # Event Visualization
-    if event_process_output.exists():
-        sample_files = list(event_process_output.glob("**/*.npy"))
-        if sample_files:
-            processed_file = sample_files[0]
-            # Assuming raw file has same relative path structure if we want comparison
-            try:
-                rel_path = processed_file.relative_to(event_process_output)
-                raw_file = event_process_input / rel_path
-                if raw_file.exists():
-                    output_viz_dir = context["viz_dir"] / "event_data"
-                    EventComparator.visualize_raw_vs_processed(
-                        raw_file, processed_file, output_dir=output_viz_dir
-                    )
-            except Exception as e:
-                print(f"Could not run event comparison: {e}")
-
-    # Image Visualization
-    if image_process_input.exists() and image_process_output.exists():
-        save_dir = context["viz_dir"] / "image_data"
-        try:
-            ImageVisualizer.visualize_preprocessing(
-                image_process_input,
-                image_process_output,
-                num_examples=5,
-                save_dir=save_dir,
-            )
-            ImageVisualizer.plot_histograms(
-                image_process_input,
-                image_process_output,
-                num_examples=5,
-                save_dir=save_dir,
-            )
-        except Exception as e:
-            print(f"Could not run image visualization: {e}")
-
-
-def run_event_feature_extraction(context):
+def check_event_feature_extraction(context):
     print("\n--- 3a. Event Feature Extraction (Verification) ---")
     # We verify the model works, but we don't save features to disk
     # because they are computed live during training.
@@ -157,54 +103,13 @@ def run_event_feature_extraction(context):
         print("Skipping verification: No processed event data found.")
 
 
-def run_image_feature_extraction(context):
+def check_image_feature_extraction(context):
     # ... (Existing Event check) ...
 
     print("\n--- 3b. Image Feature Extraction (Verification) ---")
     image_process_output = context["image_process_output"]
     if image_process_output.exists():
         check_image_features(image_process_output)
-
-
-def run_fusion(context):
-    print("\n--- 6. Fusion ---")
-    fused_output_root = context["fused_output_root"]
-    img_feat_root = context["extract_image_output_dir"]
-    evt_feat_root = context["extract_event_output_dir_base"]
-
-    if img_feat_root.exists() and evt_feat_root.exists():
-        fuse_features_in_directories(
-            image_features_dir=str(img_feat_root),
-            event_features_dir=str(evt_feat_root),
-            output_dir=str(fused_output_root),
-            image_feature_dim=768,
-            event_feature_dim=256,
-        )
-    else:
-        print("Skipping fusion: Feature directories not found.")
-
-
-def run_analysis(context):
-    print("\n--- 7. Analysis Visualization ---")
-    fused_output_root = context["fused_output_root"]
-
-    if fused_output_root.exists():
-        features, labels, folder_map = load_all_features(
-            str(fused_output_root), max_folders=10
-        )
-        if features.size > 0:
-            try:
-                visualize_tsne(features, labels, folder_map)
-                visualize_similarity_heatmap(features, labels, folder_map)
-
-                if len(features) > 0:
-                    random_index = random.randint(0, len(features) - 1)
-                    visualize_single_feature_vector(features[random_index])
-
-            except Exception as e:
-                print(f"Error in analysis visualization: {e}")
-    else:
-        print("Skipping analysis: Fused features not found.")
 
 
 def main():
@@ -218,11 +123,8 @@ def main():
             "setup",
             "preprocess_events",
             "preprocess_images",
-            "visualize",
-            "extract_event_features",
-            "extract_image_features",
-            "fuse",
-            "analyze",
+            "check_event_features_extraction",
+            "check_image_features_extraction",
         ],
         help="Step to run",
     )
@@ -237,11 +139,8 @@ def main():
     steps = {
         "preprocess_events": run_preprocess_events,
         "preprocess_images": run_preprocess_images,
-        "visualize": run_visualization,
-        "extract_event_features": run_event_feature_extraction,
-        "extract_image_features": run_image_feature_extraction,
-        "fuse": run_fusion,
-        "analyze": run_analysis,
+        "check_event_features_extraction": check_event_feature_extraction,
+        "check_image_features_extraction": check_image_feature_extraction,
     }
 
     if args.step == "all":
