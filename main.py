@@ -7,7 +7,7 @@ from btp.processing.events import BatchEventProcessor
 from btp.processing.images import ImageProcessor
 
 
-def setup_context(download=False):
+def setup_context():
     """Sets up the paths for local development."""
     print("--- 1. Setup and Data Import ---")
 
@@ -128,14 +128,10 @@ def main():
         ],
         help="Step to run",
     )
-    parser.add_argument(
-        "--download", action="store_true", help="Download datasets from Kaggle"
-    )
 
     args = parser.parse_args()
 
-    context = setup_context(download=args.download)
-
+    context = setup_context()
     steps = {
         "preprocess_events": run_preprocess_events,
         "preprocess_images": run_preprocess_images,
