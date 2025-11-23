@@ -13,3 +13,6 @@ working/
 *.zip
 btp.py
 data/
+checkpoints/
+logs/
+visualizations/
