@@ -12,7 +12,7 @@ wheels/
 working/
 *.zip
 btp.py
-data/
+/data/
 checkpoints/
 logs/
 visualizations/
