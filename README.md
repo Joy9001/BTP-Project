@@ -25,6 +25,15 @@ We use `uv` for dependency management, but standard `pip` works too.
 ```bash
 # Sync dependencies from pyproject.toml
 uv sync
+
+# Install the package in editable mode
+uv pip install -e .
+
+# Activate the environment
+source .venv/bin/activate
+
+# Deactivate
+deactivate
 ````
 
 **Option B: Using `pip`**
